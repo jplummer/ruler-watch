@@ -11,11 +11,7 @@ can be opened directly in a browser or dropped into an `<iframe>`.
 
 ## Try it
 
-```
-open index.html
-```
-
-or serve the directory and visit it in a browser — either way, no build
+Open `index.html` in a browser, or serve the directory and visit it in a browser — either way, no build
 step is required.
 
 ## How it works
