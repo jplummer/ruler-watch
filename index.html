@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ruler Watch</title>
+<style>
+  :root {
+    /* ---- theme: colors ---- */
+    --page-bg-1: #e9eaed;
+    --page-bg-2: #cfd1d6;
+
+    --case-bg-1: #3f4044;
+    --case-bg-2: #1b1c1e;
+    --case-shadow-1: rgba(0, 0, 0, 0.35);
+    --case-shadow-2: rgba(0, 0, 0, 0.25);
+    --case-inset-highlight: rgba(255, 255, 255, 0.08);
+
+    --band-bg-1: #2c2d30;
+    --band-bg-2: #1a1b1d;
+    --band-ridge: rgba(255, 255, 255, 0.025);
+
+    --crown-bg-1: #78787d;
+    --crown-bg-2: #d4d4d8;
+    --btn-bg-1: #6c6c70;
+    --btn-bg-2: #b8b8bd;
+    --metal-shadow: rgba(0, 0, 0, 0.4);
+
+    --face-bg: #fff;
+    --hour-track-bg: #eef2f7;
+    --minute-track-bg: #fffaf1;
+    --seam-color: #ddd;
+
+    --tick-color: #111;
+    --tick-minor-color: #bbb;
+    --label-color: #111;
+    --label-color-secondary: #888;
+
+    --hairline-color: #c00;
+    --digital-color: #999;
+
+    /* ---- theme: layout ----
+       Sized to ~67% of the original 400px reference face, closer to a
+       real watch's on-wrist size. --face-size/--hour-scale-px/
+       --minute-scale-px are read by the script, so changing them here
+       also changes the tick math. */
+    --face-size: 268px;
+    --hour-scale-px: 123px;
+    --minute-scale-px: 39px;
+
+    --case-bezel: 9px;
+    --case-radius: 43px;
+    --face-radius: 34px;
+
+    --band-width: 214px;
+    --band-height: 74px;
+
+    --crown-width: 7px;
+    --crown-height: 29px;
+    --crown-inset: -5px;
+    --button-width: 5px;
+    --button-height: 21px;
+    --button-inset: -3px;
+
+    --tick-major-len: 38px;
+    --tick-medium-len: 23px;
+    --tick-minor-len-hour: 13px;
+    --tick-minor-len-min: 9px;
+    --tick-major-h: 2px;
+    --tick-medium-h: 1px;
+    --tick-minor-h: 1px;
+    --label-gap: 42px;
+    --label-offset-top: -13px;
+    --label-size-major: 24px;
+    --label-size-minor: 13px;
+
+    --hairline-h: 1px;
+    --hairline-arrow: 5px;
+
+    --digital-size: 13px;
+    --digital-inset-right: 12px;
+    --digital-inset-bottom: 9px;
+
+    --stage-gap: 7px;
+  }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: radial-gradient(circle at 50% 40%, var(--page-bg-1), var(--page-bg-2));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  }
+
+  .stage {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--stage-gap);
+  }
+
+  /* Apple Watch style case: dark aluminum body, a silicone band peeking
+     out top and bottom, and a digital crown + side button on the right
+     edge. Pure CSS so the mockup needs no external image assets. */
+  .watch-case {
+    position: relative;
+    z-index: 0;
+    width: calc(var(--face-size) + 2 * var(--case-bezel));
+    height: calc(var(--face-size) + 2 * var(--case-bezel));
+    box-sizing: border-box;
+    padding: var(--case-bezel);
+    background: linear-gradient(145deg, var(--case-bg-1), var(--case-bg-2));
+    border-radius: var(--case-radius);
+    box-shadow:
+      0 20px 40px var(--case-shadow-1),
+      0 3px 7px var(--case-shadow-2),
+      inset 0 0 0 1px var(--case-inset-highlight);
+  }
+
+  .band {
+    position: absolute;
+    left: 50%;
+    width: var(--band-width);
+    height: var(--band-height);
+    background-image:
+      linear-gradient(180deg, var(--band-bg-1), var(--band-bg-2)),
+      repeating-linear-gradient(0deg, var(--band-ridge) 0 1px, transparent 1px 7px);
+    transform: translateX(-50%);
+    z-index: -1;
+  }
+
+  .band-top {
+    bottom: 100%;
+    clip-path: polygon(12% 0%, 88% 0%, 100% 100%, 0% 100%);
+  }
+
+  .band-bottom {
+    top: 100%;
+    clip-path: polygon(0% 0%, 100% 0%, 88% 100%, 12% 100%);
+  }
+
+  .crown {
+    position: absolute;
+    right: var(--crown-inset);
+    top: 38%;
+    width: var(--crown-width);
+    height: var(--crown-height);
+    border-radius: 4px;
+    background: linear-gradient(90deg, var(--crown-bg-1), var(--crown-bg-2), var(--crown-bg-1));
+    box-shadow: 0 2px 3px var(--metal-shadow);
+  }
+
+  .side-button {
+    position: absolute;
+    right: var(--button-inset);
+    top: 58%;
+    width: var(--button-width);
+    height: var(--button-height);
+    border-radius: 3px;
+    background: linear-gradient(90deg, var(--btn-bg-1), var(--btn-bg-2), var(--btn-bg-1));
+    box-shadow: 0 2px 3px var(--metal-shadow);
+  }
+
+  .face {
+    position: relative;
+    width: var(--face-size);
+    height: var(--face-size);
+    border-radius: var(--face-radius);
+    background: var(--face-bg);
+    overflow: hidden;
+  }
+
+  .tracks {
+    position: absolute;
+    inset: 0;
+    display: flex;
+  }
+
+  .tracks::after {
+    /* seam where the two scales touch */
+    content: "";
+    position: absolute;
+    left: 50%;
+    top: 0;
+    bottom: 0;
+    width: 1px;
+    background: var(--seam-color);
+  }
+
+  .track {
+    position: relative;
+    width: 50%;
+    height: 100%;
+    overflow: hidden;
+  }
+
+  .hour-track { background: var(--hour-track-bg); }
+  .minute-track { background: var(--minute-track-bg); }
+
+  .strip {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    will-change: transform;
+  }
+
+  .tick {
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 0;
+  }
+
+  .tick .line {
+    position: absolute;
+    top: 0;
+    background: var(--tick-color);
+  }
+
+  .tick .label {
+    position: absolute;
+    top: var(--label-offset-top);
+    font-size: var(--label-size-major);
+    font-weight: 600;
+    color: var(--label-color);
+    white-space: nowrap;
+  }
+
+  /* Hour scale: ticks anchored to the right edge (touching the seam),
+     numerals read outward to the left. */
+  .hour-track .tick .line { right: 0; }
+  .hour-track .tick.major .line { width: var(--tick-major-len); height: var(--tick-major-h); }
+  .hour-track .tick.medium .line { width: var(--tick-medium-len); height: var(--tick-medium-h); }
+  .hour-track .tick.minor .line { width: var(--tick-minor-len-hour); height: var(--tick-minor-h); }
+  .hour-track .tick .label { right: var(--label-gap); text-align: right; }
+  .hour-track .tick.medium .label,
+  .hour-track .tick.minor .label { font-size: var(--label-size-minor); font-weight: 400; color: var(--label-color-secondary); }
+
+  /* Minute scale: ticks anchored to the left edge (touching the seam),
+     numerals read outward to the right. */
+  .minute-track .tick .line { left: 0; }
+  .minute-track .tick.major .line { width: var(--tick-major-len); height: var(--tick-major-h); }
+  .minute-track .tick.medium .line { width: var(--tick-medium-len); height: var(--tick-medium-h); }
+  .minute-track .tick.minor .line { width: var(--tick-minor-len-min); height: var(--tick-minor-h); background: var(--tick-minor-color); }
+  .minute-track .tick .label { left: var(--label-gap); }
+  .minute-track .tick.medium .label { font-size: var(--label-size-minor); font-weight: 400; color: var(--label-color-secondary); }
+
+  .hairline {
+    position: absolute;
+    top: 50%;
+    left: 0;
+    right: 0;
+    height: var(--hairline-h);
+    background: var(--hairline-color);
+    transform: translateY(-50%);
+    z-index: 5;
+    pointer-events: none;
+  }
+
+  .hairline::before,
+  .hairline::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 0;
+    height: 0;
+    border: var(--hairline-arrow) solid transparent;
+  }
+
+  .hairline::before {
+    left: -1px;
+    border-left-color: var(--hairline-color);
+    border-right: none;
+  }
+
+  .hairline::after {
+    right: -1px;
+    border-right-color: var(--hairline-color);
+    border-left: none;
+  }
+
+  .digital {
+    position: absolute;
+    right: var(--digital-inset-right);
+    bottom: var(--digital-inset-bottom);
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: var(--digital-size);
+    color: var(--digital-color);
+    letter-spacing: 0.05em;
+    z-index: 5;
+  }
+</style>
+</head>
+<body>
+
+<div class="stage">
+  <div class="watch-case">
+    <div class="band band-top"></div>
+    <div class="band band-bottom"></div>
+    <div class="crown"></div>
+    <div class="side-button"></div>
+    <div class="face">
+      <div class="tracks">
+        <div class="track hour-track">
+          <div class="strip" id="hourStrip"></div>
+        </div>
+        <div class="track minute-track">
+          <div class="strip" id="minuteStrip">
+            <div id="minuteTicks"></div>
+          </div>
+        </div>
+      </div>
+      <div class="hairline"></div>
+      <div class="digital" id="digital"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  // Core layout numbers live as CSS custom properties (see :root above)
+  // so the theme/scale can be tuned from one place; read them once here
+  // rather than duplicating the values in JS.
+  var rootStyle = getComputedStyle(document.documentElement);
+  function cssPx(name) {
+    return parseFloat(rootStyle.getPropertyValue(name));
+  }
+  var FACE_HEIGHT = cssPx('--face-size');
+  var HOUR_PX_PER_HOUR = cssPx('--hour-scale-px');
+  var MINUTE_PX_PER_MIN = cssPx('--minute-scale-px');
+
+  // Hour strip covers -2h to 26h (padding so the ends never run out
+  // of ticks as the scale scrolls through a full day).
+  var HOUR_MIN = -2, HOUR_MAX = 26;
+  // Minute strip covers -10min to 1450min (a full day, padded).
+  var MINUTE_MIN = -10, MINUTE_MAX = 1450;
+
+  // Snap to the device pixel grid. Safari anti-aliases hairline (1px)
+  // elements at fractional positions much more aggressively than Chrome,
+  // which blurs closely-spaced ticks into a smear; rounding to whole
+  // device pixels keeps both engines rasterizing the same geometry.
+  var DPR = window.devicePixelRatio || 1;
+  function snap(px) {
+    return Math.round(px * DPR) / DPR;
+  }
+
+  var hourStrip = document.getElementById('hourStrip');
+  var minuteStrip = document.getElementById('minuteStrip');
+  var minuteTicks = document.getElementById('minuteTicks');
+  var digital = document.getElementById('digital');
+
+  // Position along the strip, in scale units, for a given value. Values
+  // slide upward past the hairline as time advances (like an odometer
+  // digit wheel incrementing).
+  function hourPos(hourVal) {
+    return hourVal - HOUR_MIN;
+  }
+  function minutePos(m) {
+    return m - MINUTE_MIN;
+  }
+
+  function buildHourStrip() {
+    hourStrip.innerHTML = '';
+    var frag = document.createDocumentFragment();
+    for (var q = HOUR_MIN * 4; q <= HOUR_MAX * 4; q++) {
+      var hourVal = q / 4;
+      var y = hourPos(hourVal) * HOUR_PX_PER_HOUR;
+      var mod4 = ((q % 4) + 4) % 4;
+      var tick = document.createElement('div');
+      var label = '';
+
+      if (mod4 === 0) {
+        var h = Math.round(hourVal) % 12;
+        if (h <= 0) h += 12;
+        label = String(h);
+        tick.className = 'tick major';
+      } else if (mod4 === 2) {
+        tick.className = 'tick medium';
+      } else {
+        tick.className = 'tick minor';
+      }
+
+      tick.style.top = snap(y) + 'px';
+      tick.innerHTML = '<span class="line"></span>' +
+        (label ? '<span class="label">' + label + '</span>' : '');
+      frag.appendChild(tick);
+    }
+    hourStrip.appendChild(frag);
+    hourStrip.style.height = ((HOUR_MAX - HOUR_MIN) * HOUR_PX_PER_HOUR) + 'px';
+  }
+
+  function buildMinuteStrip() {
+    minuteTicks.innerHTML = '';
+    var frag = document.createDocumentFragment();
+    for (var m = MINUTE_MIN; m <= MINUTE_MAX; m++) {
+      var y = minutePos(m) * MINUTE_PX_PER_MIN;
+      var mm = ((m % 60) + 60) % 60;
+      var tick = document.createElement('div');
+      var label = '';
+
+      if (mm % 5 === 0) {
+        label = mm < 10 ? '0' + mm : String(mm);
+        tick.className = 'tick major';
+      } else {
+        tick.className = 'tick medium';
+      }
+
+      tick.style.top = snap(y) + 'px';
+      tick.innerHTML = '<span class="line"></span>' +
+        (label ? '<span class="label">' + label + '</span>' : '');
+      frag.appendChild(tick);
+
+      // 10-second sub-ticks between this minute and the next. Built as
+      // real elements (not a CSS repeating-gradient background) because
+      // Safari renders fractional-pixel repeating gradients unreliably.
+      for (var s = 1; s <= 5; s++) {
+        var subY = minutePos(m + s / 6) * MINUTE_PX_PER_MIN;
+        var subTick = document.createElement('div');
+        subTick.className = 'tick minor';
+        subTick.style.top = snap(subY) + 'px';
+        subTick.innerHTML = '<span class="line"></span>';
+        frag.appendChild(subTick);
+      }
+    }
+    minuteTicks.appendChild(frag);
+    var stripHeight = (MINUTE_MAX - MINUTE_MIN) * MINUTE_PX_PER_MIN;
+    minuteStrip.style.height = stripHeight + 'px';
+  }
+
+  // At this physical scale the minute track moves under 1 device pixel
+  // per second, which conflicts with the pixel-snapping above: snapping
+  // continuous sub-pixel motion to whole device pixels produced visible
+  // jumps that landed at arbitrary, off-second moments (the "frantic,
+  // unsynced ticking" this replaces). Updating once per whole second
+  // instead turns that into a single deliberate tick exactly on the
+  // second, and keeps every frame's geometry snap-crisp in both engines.
+  var lastSecond = -1;
+
+  function frame() {
+    var now = new Date();
+    var second = Math.floor(now.getTime() / 1000);
+    if (second !== lastSecond) {
+      lastSecond = second;
+      var d = new Date(second * 1000);
+      var contHour = d.getHours() + d.getMinutes() / 60 + d.getSeconds() / 3600;
+      var contMinuteOfDay = d.getHours() * 60 + d.getMinutes() + d.getSeconds() / 60;
+
+      var hourY = hourPos(contHour) * HOUR_PX_PER_HOUR;
+      var minuteY = minutePos(contMinuteOfDay) * MINUTE_PX_PER_MIN;
+      var half = FACE_HEIGHT / 2;
+
+      hourStrip.style.transform = 'translateY(' + snap(half - hourY) + 'px)';
+      minuteStrip.style.transform = 'translateY(' + snap(half - minuteY) + 'px)';
+
+      digital.textContent = d.toLocaleTimeString();
+    }
+
+    requestAnimationFrame(frame);
+  }
+
+  buildHourStrip();
+  buildMinuteStrip();
+  requestAnimationFrame(frame);
+})();
+</script>
+
+</body>
+</html>
